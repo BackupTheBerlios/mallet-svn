@@ -22,22 +22,33 @@ import gtksourceview as gsv
 from mallet.gtkutil import ActionControllerMixin
 
 
-class Editor:
+class Editor(gtk.ScrolledWindow):
 
     """High-level simple wrapper around GtkSourceView"""
 
-    def __init__(self):
-        self.lm = gsv.SourceLanguagesManager()
+    LM = gsv.SourceLanguagesManager()
+
+    def __init__(self, filename=None):
+        gtk.ScrolledWindow.__init__(self)
         self.buffer = gsv.SourceBuffer()
-        self.buffer.set_data('languages-manager', self.lm)
         self.view = gsv.SourceView(self.buffer)
+        self.buffer.set_highlight(True)
+        language = self.LM.get_language_from_mime_type('text/x-python')
+        self.buffer.set_language(language)
+        self.filename = filename
+        if filename:
+            self.buffer.set_text(file(filename).read())
+        self.add_with_viewport(self.view)
+        self.show()
+        self.view.show()
     
-    
-class EditorBook(ActionControllerMixin):
+class EditorBook(gtk.Notebook, ActionControllerMixin):
 
     """Set of Editor widgets"""
 
     def __init__(self):
+        gtk.Notebook.__init__(self)
+        
         self.action_group = ag = gtk.ActionGroup('EditorActions')
         ag.add_actions([
             ('New', gtk.STOCK_NEW, '_New', '<Control>n',
@@ -71,7 +82,11 @@ class EditorBook(ActionControllerMixin):
     #
 
     def cb_New(self, widget):
-        print 'New!'
+        b = Editor('/home/sri/sphere/NHAY.py')
+        b.show()
+        l = gtk.Label('New')
+        l.show()
+        self.append_page(b,l)
 
 
 

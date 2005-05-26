@@ -59,6 +59,7 @@ class MainWindow(gtk.Window):
         merge_id = uim.add_ui_from_string(uidesc)
 
         e = EditorBook()
+        e.show()
         e_ag, e_uidesc = e.getUI()
         uim.insert_action_group(e_ag, 1)
         uim.add_ui_from_string(e_uidesc)
@@ -69,6 +70,7 @@ class MainWindow(gtk.Window):
         toolbar = uim.get_widget('/Toolbar')
         vbox.pack_start(menubar, False)
         vbox.pack_start(toolbar, False)
+        vbox.pack_start(e, True)
 
         self.add(vbox)
 
