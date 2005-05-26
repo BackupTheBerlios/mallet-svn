@@ -1,0 +1,5 @@
+GNOME Mallet
+
+Mallet is a simple and extensible Editor (later an IDE) for Python programming in GNOME environment. It uses PyGTK and gazpacho. Integration with tools like epydoc, pyrex, etc are planned.
+
+As the project progresses, it will turn up into an IDE without getting into the developers way!
