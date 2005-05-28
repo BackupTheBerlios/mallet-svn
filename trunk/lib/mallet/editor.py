@@ -19,7 +19,7 @@
 import gtk
 import gtksourceview as gsv
 
-from mallet.gtkutil import ActionControllerMixin
+from mallet.gtkutil import ActionControllerMixin, FileDialog
 
 
 class Editor(gtk.ScrolledWindow):
@@ -28,26 +28,90 @@ class Editor(gtk.ScrolledWindow):
 
     LM = gsv.SourceLanguagesManager()
 
-    def __init__(self, filename=None):
+    def __init__(self):
         gtk.ScrolledWindow.__init__(self)
         self.buffer = gsv.SourceBuffer()
         self.view = gsv.SourceView(self.buffer)
         self.buffer.set_highlight(True)
         language = self.LM.get_language_from_mime_type('text/x-python')
         self.buffer.set_language(language)
-        self.filename = filename
-        if filename:
-            self.buffer.set_text(file(filename).read())
         self.add_with_viewport(self.view)
         self.show()
         self.view.show()
+
+    def setText(self, text):
+        self.buffer.set_text(text)
+
+    def getText(self):
+        start, end = self.buffer.get_bounds()
+        return self.buffer.get_text(start, end)
+
+
+class DocumentExists(Exception):
+
+    """Document already exists"""
+
+    def __init__(self, document):
+        self.document = document
+
+    def __str__(self):
+        return self.__class__.__doc__
+
+class DocumentHasNoFilename(Exception):
+
+    """Document was not given any filename"""
+    
+
+class Document:
+
+    """Represent a document (and associated file, editor, etc ..)
+
+    @ivar filename: The file represented by the document
+    @ivar editor: The editor widget contained in document
+    """
+
+    live_documents = {}
+
+    def __init__(self, filename=None):
+        if filename and filename in self.live_documents:
+            raise DocumentExists, self.live_documents[filename]
+        self.editor = Editor()
+        if filename:
+            self.openFile(filename)
+            Document.live_documents[filename] = self
+        self.filename = filename
+        self.editor.show()
+        self.editor.set_data('document-instance', self)
+
+    def close(self):
+        """Destroy this document"""
+        if self.filename:
+            del Document.live_documents[self.filename]
+
+    def openFile(self, filename):
+        self.editor.setText(open(filename).read())
+        self.filename = filename
+
+    def save(self, newFilenameIfAny=None):
+        text = self.editor.getText()
+        if newFilenameIfAny:
+            filename = newFilenameIfAny
+        else:
+            filename = self.filename
+        if filename is None:
+            raise DocumentHasNoFilename
+        open(filename, 'w').write(text)
+        self.filename = filename
+        
     
 class EditorBook(gtk.Notebook, ActionControllerMixin):
 
-    """Set of Editor widgets"""
+    """Set of Editor widgets. Managed all Documents"""
 
     def __init__(self):
         gtk.Notebook.__init__(self)
+
+        self.documents = {} # document -> page_num
         
         self.action_group = ag = gtk.ActionGroup('EditorActions')
         ag.add_actions([
@@ -78,16 +142,66 @@ class EditorBook(gtk.Notebook, ActionControllerMixin):
         # TODO: standardize this as plugin method
         return self.action_group, uidesc
 
+    def addDocument(self, document):
+        """Add a document to notebook"""
+        title = str(document.filename)
+        label = gtk.Label(title)
+        label.show()
+        self.documents[document] = self.append_page(document.editor, label)
+
+    def removeDocument(self, document):
+        """Remove the document from notebook"""
+        self.remove_page(self.documents[document])
+        del self.documents[document]
+        document.close()
+        pass
+
+
+    def focusDocument(self, document):
+        """Bring the document to focus"""
+        nr = self.page_num(document.editor)
+        self.set_current_page(nr)
+
+    def currentDocument(self):
+        """Return the focused document"""
+        nr = self.get_current_page()
+        if nr == -1:
+            return None # no documents
+        editor = self.get_nth_page(nr)
+        document = editor.get_data('document-instance')
+        assert document
+        return document
+
     # action callbacks
     #
 
-    def cb_New(self, widget):
-        b = Editor('/home/sri/sphere/NHAY.py')
-        b.show()
-        l = gtk.Label('New')
-        l.show()
-        self.append_page(b,l)
+    def on_New(self, widget):
+        document = Document()
+        self.addDocument(document)
+        self.focusDocument(document)
 
+    def on_Open(self, widget):
+        filename = FileDialog().open()
+        if filename:
+            document = None
+            try:
+                document = Document(filename)
+                self.addDocument(document)
+            except DocumentExists, e:
+                document = e.document
+            self.focusDocument(document)
+
+    def on_Save(self, widget):
+        document = self.currentDocument()
+        try:
+            document.save()
+        except DocumentHasNoFilename:
+            filename = FileDialog().save()
+            if filename is None:
+                return
+            document.save(filename)
+
+            
 
 
 uidesc = """
