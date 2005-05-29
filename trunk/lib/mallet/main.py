@@ -68,6 +68,7 @@ class MainWindow(gtk.Window):
         vbox = gtk.VBox()
         menubar = uim.get_widget('/MenuBar')
         toolbar = uim.get_widget('/Toolbar')
+        toolbar.set_style(gtk.TOOLBAR_ICONS)
         vbox.pack_start(menubar, False)
         vbox.pack_start(toolbar, False)
         vbox.pack_start(e, True)

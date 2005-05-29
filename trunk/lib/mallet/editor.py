@@ -16,6 +16,7 @@
 
 """Editor widget based on GtkSourceView"""
 
+import gobject
 import gtk
 import gtksourceview as gsv
 
@@ -62,7 +63,7 @@ class DocumentHasNoFilename(Exception):
     """Document was not given any filename"""
     
 
-class Document:
+class Document(gobject.GObject):
 
     """Represent a document (and associated file, editor, etc ..)
 
@@ -72,16 +73,43 @@ class Document:
 
     live_documents = {}
 
+    __gproperties__ = {
+        'filename': (gobject.TYPE_PYOBJECT,
+                     'filename of document',
+                     'The file represented by the document',
+                     gobject.PARAM_READWRITE)
+        }
+
+    filename = property(fget=lambda self: self.get_property('filename'))
+
     def __init__(self, filename=None):
         if filename and filename in self.live_documents:
             raise DocumentExists, self.live_documents[filename]
+        self.__filename = None
+        gobject.GObject.__init__(self)
         self.editor = Editor()
+        self.connect('notify::filename', self._cbFilenameChanged)
         if filename:
             self.openFile(filename)
             Document.live_documents[filename] = self
-        self.filename = filename
+        self.set_property('filename', filename)
         self.editor.show()
         self.editor.set_data('document-instance', self)
+
+    def _cbFilenameChanged(self, document):
+        pass
+
+    def do_get_property(self, property):
+        if property.name == 'filename':
+            return self.__filename
+        else:
+            raise AttributeError, 'unknown property %s' % property.name
+
+    def do_set_property(self, property, value):
+        if property.name == 'filename':
+            self.__filename = value
+        else:
+            raise AttributeError, 'unknown property %s' % property.name
 
     def close(self):
         """Destroy this document"""
@@ -90,7 +118,7 @@ class Document:
 
     def openFile(self, filename):
         self.editor.setText(open(filename).read())
-        self.filename = filename
+        self.set_property('filename', filename)
 
     def save(self, newFilenameIfAny=None):
         text = self.editor.getText()
@@ -101,8 +129,16 @@ class Document:
         if filename is None:
             raise DocumentHasNoFilename
         open(filename, 'w').write(text)
-        self.filename = filename
-        
+        self.editor.buffer.set_modified(False)
+        self.set_property('filename', filename)
+
+    def getModified(self):
+        """Return True if the buffer was modified since last saved"""
+        return self.editor.buffer.get_modified()
+
+
+gobject.type_register(Document)
+
     
 class EditorBook(gtk.Notebook, ActionControllerMixin):
 
@@ -123,6 +159,8 @@ class EditorBook(gtk.Notebook, ActionControllerMixin):
              'Save current file'),
             ('SaveAs', None, 'Save _As ...', None,
              'Save current file under different filename'),
+            ('Close', gtk.STOCK_CLOSE, '_Close', None,
+             'Close current file'),
 
             ('Undo', gtk.STOCK_UNDO, '_Undo', '<Control>z',
              'Undo last change'),
@@ -142,20 +180,22 @@ class EditorBook(gtk.Notebook, ActionControllerMixin):
         # TODO: standardize this as plugin method
         return self.action_group, uidesc
 
+    def _cbFilenameChanged(self, document, prop):
+        print 'CC', document.filename
+
     def addDocument(self, document):
         """Add a document to notebook"""
         title = str(document.filename)
         label = gtk.Label(title)
         label.show()
         self.documents[document] = self.append_page(document.editor, label)
+        document.connect('notify::filename', self._cbFilenameChanged)
 
     def removeDocument(self, document):
         """Remove the document from notebook"""
         self.remove_page(self.documents[document])
         del self.documents[document]
         document.close()
-        pass
-
 
     def focusDocument(self, document):
         """Bring the document to focus"""
@@ -191,17 +231,42 @@ class EditorBook(gtk.Notebook, ActionControllerMixin):
                 document = e.document
             self.focusDocument(document)
 
-    def on_Save(self, widget):
-        document = self.currentDocument()
+    def saveDocument(self, document):
+        """Try to save the document with user interaction, returning
+        True if document was saved successfully"""
         try:
             document.save()
         except DocumentHasNoFilename:
             filename = FileDialog().save()
             if filename is None:
-                return
+                return False
             document.save(filename)
+        return True
 
-            
+    def on_Save(self, widget):
+        document = self.currentDocument()
+        self.saveDocument(document)
+
+    def on_Close(self, widget):
+        document = self.currentDocument()
+        if document.getModified():
+            # TODO: set parent
+            msg = gtk.MessageDialog(parent=None,
+                                    flags=gtk.DIALOG_MODAL,
+                                    type=gtk.MESSAGE_WARNING,
+                                    message_format="Save %s?"%document.filename or 'Untitled')
+            msg.add_buttons(gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL, gtk.STOCK_NO, gtk.RESPONSE_NO, gtk.STOCK_YES, gtk.RESPONSE_YES)
+            response = msg.run()
+            msg.destroy()
+            if response == gtk.RESPONSE_YES:
+                if self.saveDocument(document) == False:
+                    return # don't close as user cancelled
+            elif response == gtk.RESPONSE_NO:
+                pass # shall be closed
+            else:
+                return # don't save and close
+        # close now
+        self.removeDocument(document)
 
 
 uidesc = """
@@ -211,6 +276,7 @@ uidesc = """
       <menuitem action="Open"/>
       <menuitem action="Save"/>
       <menuitem action="SaveAs"/>
+      <menuitem action="Close"/>
     </menu>
     <menu action="EditMenu">
       <menuitem action="Undo"/>
