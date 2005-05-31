@@ -14,7 +14,10 @@
 # along with this program; if not, write to the Free Software 
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-"""Editor widget based on GtkSourceView"""
+"""Editor widget based on GtkSourceView
+
+This could perhaps become the Editor Plugin
+"""
 
 import gobject
 import gtk
@@ -50,7 +53,7 @@ class Editor(gtk.ScrolledWindow):
 
 class DocumentExists(Exception):
 
-    """Document already exists"""
+    """Document already exists (opened by user)"""
 
     def __init__(self, document):
         self.document = document
@@ -60,7 +63,7 @@ class DocumentExists(Exception):
 
 class DocumentHasNoFilename(Exception):
 
-    """Document was not given any filename"""
+    """Document was not given any filename (unnamed)"""
     
 
 class Document(gobject.GObject):
@@ -71,6 +74,7 @@ class Document(gobject.GObject):
     @ivar editor: The editor widget contained in document
     """
 
+    # Created (named) documents 'hashed' by the filename
     live_documents = {}
 
     __gproperties__ = {
@@ -117,10 +121,13 @@ class Document(gobject.GObject):
             del Document.live_documents[self.filename]
 
     def openFile(self, filename):
+        """Open file"""
         self.editor.setText(open(filename).read())
         self.set_property('filename', filename)
 
     def save(self, newFilenameIfAny=None):
+        """Save to file. Use `newFilenameIfAny` (if passed) and update 
+        the document filename accordingly"""
         text = self.editor.getText()
         if newFilenameIfAny:
             filename = newFilenameIfAny
@@ -136,20 +143,19 @@ class Document(gobject.GObject):
         """Return True if the buffer was modified since last saved"""
         return self.editor.buffer.get_modified()
 
-
 gobject.type_register(Document)
 
     
 class EditorBook(gtk.Notebook, ActionControllerMixin):
 
-    """Set of Editor widgets. Managed all Documents"""
+    """Documents notebook"""
 
     def __init__(self):
         gtk.Notebook.__init__(self)
 
         self.documents = {} # document -> page_num
         
-        self.action_group = ag = gtk.ActionGroup('EditorActions')
+        self.action_group = ag = gtk.ActionGroup('EditorActionGroup')
         ag.add_actions([
             ('New', gtk.STOCK_NEW, '_New', '<Control>n',
              'Open new file'),
@@ -211,6 +217,18 @@ class EditorBook(gtk.Notebook, ActionControllerMixin):
         document = editor.get_data('document-instance')
         assert document
         return document
+        
+    def saveDocument(self, document):
+        """Try to save the document with user interaction, returning
+        True if document was saved successfully"""
+        try:
+            document.save()
+        except DocumentHasNoFilename:
+            filename = FileDialog().save()
+            if filename is None:
+                return False
+            document.save(filename)
+        return True
 
     # action callbacks
     #
@@ -230,18 +248,6 @@ class EditorBook(gtk.Notebook, ActionControllerMixin):
             except DocumentExists, e:
                 document = e.document
             self.focusDocument(document)
-
-    def saveDocument(self, document):
-        """Try to save the document with user interaction, returning
-        True if document was saved successfully"""
-        try:
-            document.save()
-        except DocumentHasNoFilename:
-            filename = FileDialog().save()
-            if filename is None:
-                return False
-            document.save(filename)
-        return True
 
     def on_Save(self, widget):
         document = self.currentDocument()

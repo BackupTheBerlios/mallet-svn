@@ -23,6 +23,13 @@ import gtk
 
 class ActionControllerMixin:
 
+    """Automatically connect callbacks to UIAction
+    
+    During __init__, call the single method `connectActionCallbacks` passing
+    the ActionGroup which contains the Actions. All callback methods in the
+    class will be automatically connected to the appropriate Action
+    """
+
     def connectActionCallbacks(self, action_group):
         """Connect cb_<action_name> methods to the corresponding Actions"""
         # generate Action names list from callback methods
@@ -36,11 +43,13 @@ class ActionControllerMixin:
         for action_name in actions_list:
             action = action_group.get_action(action_name)
             callback = getattr(self, '%s%s' % (startWith, action_name))
-            # The "activate" signal is emitted when Action is activated.
+            # The "activate" signal is emitted when Action is 'performed'.
             action.connect("activate", callback)
 
 
 class FileDialog:
+
+    """Abstracts common file dialog operations"""
 
     # Last accessed file or directory
     last_accessed = None

@@ -14,7 +14,7 @@
 # along with this program; if not, write to the Free Software 
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-"""Main module for mallet"""
+"""Main module"""
 
 import pygtk
 pygtk.require('2.0')
@@ -32,6 +32,8 @@ def run():
 
 class MainWindow(gtk.Window):
 
+    """Main application window"""
+
     def __init__(self):
         gtk.Window.__init__(self)
         self.uim = uim = gtk.UIManager()
@@ -40,9 +42,9 @@ class MainWindow(gtk.Window):
 
         ncb = lambda *args: None
 
-        self.actiongroup = actiongroup = gtk.ActionGroup('DefaultActionGroup')
+        self.actiongroup = actiongroup = gtk.ActionGroup('MainActionGroup')
 
-        # Create actions
+        # Create Actions
         actiongroup.add_actions([('Quit', gtk.STOCK_QUIT, '_Quit', None,
                                   'Quit the Program', ncb),
                                  ('FileMenu', None, '_File'),
@@ -74,17 +76,9 @@ class MainWindow(gtk.Window):
         vbox.pack_start(e, True)
 
         self.add(vbox)
-
-class Splash:
-
-    def __init__(self):
-        self.window = gtk.Window(gtk.WINDOW_TOPLEVEL)
-        self.window.connect('delete_event', self.delete_event)
-        self.window.connect('destroy', self.destroy)
-        self.window.show()
-
-    def delete_event(self, widget, event, data=None):
-        return False
+        
+        self.connect('delete_event', lambda *args: False)
+        self.connect('destroy', self.destroy)
 
     def destroy(self, widget, data=None):
         gtk.main_quit()
