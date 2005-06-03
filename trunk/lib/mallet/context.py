@@ -94,14 +94,17 @@ class AppConfig:
     
     def __init__(self, pref_string):
         self._data = syck.load(pref_string)
+        if self._data is None:
+            self._data = {}
         
     def get(self, var_path):
         """Get value"""
         obj = self._data
         for var in var_path.split('.'):
             try:
+                if type(obj) is not dict: raise KeyError
                 obj = obj[var]
-            except ItemError:
+            except KeyError:
                 raise NoConfigVariable
         return obj
         
@@ -111,8 +114,9 @@ class AppConfig:
         vars = var_path.split('.')
         for var in vars[:-1]:
             try:
+                if type(obj) is not dict: raise KeyError
                 obj = obj[var]
-            except ItemError:
+            except KeyError:
                 raise NoConfigVariable
         obj[vars[-1]] = value
         
@@ -128,15 +132,17 @@ class AppConfig:
         vars = var_path.split('.')
         for var in vars[:-1]:
             try:
+                if type(obj) is not dict: raise KeyError
                 obj = obj[var]
-            except ItemError:
+            except KeyError:
                 obj[var] = {}
                 obj = obj[var]
                 
         var = vars[-1]
         try:
+            if '__getitem__' not in dir(obj): raise KeyError
             obj = obj[var]
-        except ItemError:
+        except KeyError:
             obj[var] = default
             obj = obj[var]
         return obj
