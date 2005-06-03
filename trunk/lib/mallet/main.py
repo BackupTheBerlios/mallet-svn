@@ -21,7 +21,8 @@ import pygtk
 pygtk.require('2.0')
 import gtk
 
-from mallet.context import Context # First module to be imported from `mallet`
+import mallet.context # First module to be imported from `mallet`
+from mallet.context import ctx 
 from mallet.editor import EditorBook
 
 def run():
@@ -41,7 +42,6 @@ class MainWindow(gtk.Window):
     def __init__(self):
         gtk.Window.__init__(self)
         self.set_title("GNOME Mallet")
-        self.ctx = Context()
         
         self.uim = uim = gtk.UIManager()
         accelgroup = uim.get_accel_group()
@@ -88,7 +88,7 @@ class MainWindow(gtk.Window):
         self.connect('destroy', self.destroy)
 
     def destroy(self, widget, data=None):
-        self.ctx._cleanup()
+        ctx._cleanup()
         gtk.main_quit()
 
 

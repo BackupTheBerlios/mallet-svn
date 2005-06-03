@@ -25,13 +25,18 @@ import inspect
 import syck, ydump
 
 
-class Context:
+class ctx:
 
     """Application context. Shared data repository
-    This is a singleton class
+    
+    Note: This class object will be replaced with the instance object
+          after instantiation (see `init_context` function).
+          It is enough to do 'from context import ctx' to get the context
+          instance.
     
     Configuration variables
     =======================
+    >>> from context import ctx
     >>> ctx['editor.font'] = 'Monospace'
     >>> size = int( ctx['editor.fontsize'] )
     """
@@ -65,17 +70,13 @@ class Context:
             self._config.set(var_path, value)
         except NoConfigVariable:
             self._config.create(var_path, value)
-            
-    # singleton trick
-    #  see init_context()
-    def __call__(self):
-        return self
+
         
 def init_context():
     app_settings_directory = os.path.expanduser('~/.config/mallet')
     # singleton trick
-    global Context
-    Context = Context(app_settings_directory)            
+    global ctx
+    ctx = ctx(app_settings_directory)            
 
 
 class NoConfigVariable(Exception):
