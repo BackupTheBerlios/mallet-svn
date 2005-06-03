@@ -31,6 +31,8 @@ class Editor(gtk.ScrolledWindow):
     """High-level simple wrapper around GtkSourceView"""
 
     LM = gsv.SourceLanguagesManager()
+    
+    editable = property(fget=lambda s: s.view.get_editable(), doc="Is the text editable?")
 
     def __init__(self):
         gtk.ScrolledWindow.__init__(self)
@@ -68,7 +70,8 @@ class DocumentHasNoFilename(Exception):
 
 class Document(gobject.GObject):
 
-    """Represent a document (and associated file, editor, etc ..)
+    """Represent the editor and file associated with it. Any *editing* operations
+    must be handled by the `editor` instance
 
     @ivar filename: The file represented by the document
     @ivar editor: The editor widget contained in document

@@ -26,7 +26,10 @@ from mallet.editor import EditorBook
 def run():
     """Start the application"""
     w = MainWindow()
-    w.show_all()
+    for child in w.get_children():
+        w.show_all()
+    w.maximize()
+    w.show()
     gtk.main()
 
 
