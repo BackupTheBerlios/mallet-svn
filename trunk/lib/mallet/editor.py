@@ -19,6 +19,8 @@
 This could perhaps become the Editor Plugin
 """
 
+import os.path
+
 import gobject
 import gtk
 import gtksourceview as gsv
@@ -67,7 +69,89 @@ class DocumentExists(Exception):
 class DocumentHasNoFilename(Exception):
 
     """Document was not given any filename (unnamed)"""
+
+
+class UniqueNames:
+
+    """Map each filename to unique (human readable) short versions such that no
+    two filename in a 'set' has the same short version.
     
+    eg:
+    /root/a/file.py and /root/a/open.py map to file.py and open.py
+    while
+    /root/a/file.py and /root/b/file.py map to file.py[a] and file.py[b]
+    """
+    
+    def __init__(self):
+        self.basename_map = {} # file.py -> (/root/a/file.py:shortname_changed_callback,/root/b/file.py:s_c_c)
+        self.uniquename = {}  # path -> unique
+        
+    def addPath(self, newpath, shortname_changed_callback):
+        """Add newpath to set, notifying any change in shortnames for other paths"""
+        basename = os.path.basename(newpath)
+        map_value = self.basename_map.get(basename, {})
+        map_value[newpath] = shortname_changed_callback
+        self.basename_map[basename] = map_value
+        self.uniquename[newpath] = None
+        self._updateSet(basename)
+        
+    def removePath(self, path):
+        """Remove newpath from set, notifying any change in shortnames for other paths"""
+        basename = os.path.basename[path]
+        del self.basename_map[basename][path]
+        del self.uniquename[path]
+        self._updateSet(basename)
+        
+    # main algorithm
+    def _updateSet(self, basename):
+        """Update self.basename_map[basename] set"""
+        pathmap = self.basename_map[basename]
+        shortname = {} # (basename, identity)
+                       # identify is nearest parent directory name which is unique
+        
+        parts = {} # path components
+        min_len = None
+        for path in pathmap.keys():
+            pth = os.path.dirname(path)
+            parts[path] = pth.split(os.path.sep)
+            parts[path].reverse()
+            parts[path].append('') # sentinel
+            if not min_len or min_len > len(parts[path]):
+                min_len = len(parts[path])
+            shortname[path] = [basename, '']
+        
+        pathmap_copy = pathmap.copy()
+        for point in range(min_len):
+            if len(pathmap_copy) == 1:
+                del pathmap_copy[pathmap_copy.keys()[0]]
+                continue
+            elif len(pathmap_copy) == 0:
+                break
+                
+            part_map = {} # parts[path][point] -> path
+            for path in pathmap_copy.keys():
+                part = parts[path][point]
+                lst = part_map.get(part, [])
+                lst.append(path)
+                part_map[part] = lst
+            for part, path_lst in part_map.items():
+                if len(path_lst) == 1:
+                    # unique name found!
+                    path = path_lst[0]
+                    del pathmap_copy[path]
+                    shortname[path][1] = part
+                
+        assert len(pathmap_copy) == 0
+        
+        modified = []
+        print '-'*30
+        for path, shortname in shortname.items():
+            if not self.uniquename[path] or self.uniquename[path]  != shortname:
+                shortname_changed_callback = pathmap[path]
+                self.uniquename[path] = shortname
+                print 'Solution:', path, shortname
+                shortname_changed_callback(shortname)
+
 
 class Document(gobject.GObject):
 
@@ -75,49 +159,50 @@ class Document(gobject.GObject):
     must be handled by the `editor` instance
 
     @ivar filename: The file represented by the document
+    @ivar shortname: Unique name (shorted than filename) for this document
     @ivar editor: The editor widget contained in document
     """
 
     # Created (named) documents 'hashed' by the filename
     live_documents = {}
+    
+    uniquename = UniqueNames()
 
-    __gproperties__ = {
-        'filename': (gobject.TYPE_PYOBJECT,
-                     'filename of document',
-                     'The file represented by the document',
-                     gobject.PARAM_READWRITE)
-        }
+    __gsignals__ = {
+        'shortname-changed': (gobject.SIGNAL_RUN_LAST, None, (str,))
+    }
 
-    filename = property(fget=lambda self: self.get_property('filename'))
+    filename = property(fget=lambda self: self.__filename)
+    shortname = property(fget=lambda self: self.__shortname)
 
     def __init__(self, filename=None):
         if filename and filename in self.live_documents:
             raise DocumentExists, self.live_documents[filename]
         self.__filename = None
+        self.__shortname = None
         gobject.GObject.__init__(self)
         self.editor = Editor()
-        self.connect('notify::filename', self._cbFilenameChanged)
         if filename:
             self.openFile(filename)
             Document.live_documents[filename] = self
-        self.set_property('filename', filename)
         self.editor.show()
         self.editor.set_data('document-instance', self)
-
-    def _cbFilenameChanged(self, document):
-        pass
-
-    def do_get_property(self, property):
-        if property.name == 'filename':
-            return self.__filename
-        else:
-            raise AttributeError, 'unknown property %s' % property.name
-
-    def do_set_property(self, property, value):
-        if property.name == 'filename':
-            self.__filename = value
-        else:
-            raise AttributeError, 'unknown property %s' % property.name
+        
+    def __set_filename(self, value):
+        def update_shortname(shortname):
+            if shortname[1]:
+                sname = '%s [%s]' % (shortname[0], shortname[1])
+            else:
+                sname = '%s' % shortname[0]
+            self.__shortname = sname
+            self.emit('shortname-changed', sname)
+        oldfilename = self.__filename
+        if value == oldfilename:
+            return
+        self.__filename = value
+        if oldfilename:
+            self.uniquename.removePath(oldfilename)
+        self.uniquename.addPath(value, update_shortname)
 
     def close(self):
         """Destroy this document"""
@@ -127,7 +212,7 @@ class Document(gobject.GObject):
     def openFile(self, filename):
         """Open file"""
         self.editor.setText(open(filename).read())
-        self.set_property('filename', filename)
+        self.__set_filename(filename)
 
     def save(self, newFilenameIfAny=None):
         """Save to file. Use `newFilenameIfAny` (if passed) and update 
@@ -141,11 +226,12 @@ class Document(gobject.GObject):
             raise DocumentHasNoFilename
         open(filename, 'w').write(text)
         self.editor.buffer.set_modified(False)
-        self.set_property('filename', filename)
+        self.__set_filename(filename)
 
     def getModified(self):
         """Return True if the buffer was modified since last saved"""
         return self.editor.buffer.get_modified()
+
 
 gobject.type_register(Document)
 
@@ -195,11 +281,15 @@ class EditorBook(gtk.Notebook, ActionControllerMixin):
 
     def addDocument(self, document):
         """Add a document to notebook"""
-        title = str(document.filename)
+        title = str(document.shortname)
         label = gtk.Label(title)
         label.show()
         self.documents[document] = self.append_page(document.editor, label)
-        document.connect('notify::filename', self._cbFilenameChanged)
+        document.connect('shortname-changed', self._cbShortnameChanged)
+    
+    def _cbShortnameChanged(self, document, shortname):
+        label = self.get_tab_label(document.editor)
+        label.set_text(shortname)
 
     def removeDocument(self, document):
         """Remove the document from notebook"""
