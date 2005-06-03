@@ -24,7 +24,9 @@ import gtk
 import gtksourceview as gsv
 
 from mallet.gtkutil import ActionControllerMixin, FileDialog
+from mallet.context import Context
 
+Context()
 
 class Editor(gtk.ScrolledWindow):
 

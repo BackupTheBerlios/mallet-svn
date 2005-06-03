@@ -28,6 +28,7 @@ import syck, ydump
 class Context:
 
     """Application context. Shared data repository
+    This is a singleton class
     
     Configuration variables
     =======================
@@ -35,13 +36,8 @@ class Context:
     >>> size = int( ctx['editor.fontsize'] )
     """
 
-    def __init__(self, app_settings_directory, finalizer):
-        """
-        finalizer - the callable object only which is allowed to cleanup 
-                    the context
-        """
+    def __init__(self, app_settings_directory):
         self.app_settings_directory = app_settings_directory
-        self.finalizer = finalizer
         
         if not os.path.exists(app_settings_directory):
             os.makedirs(app_settings_directory)
@@ -52,13 +48,8 @@ class Context:
             
         self._config = AppConfig(open(conf_file).read())
         
-    def cleanup(self):
+    def _cleanup(self):
         """Called when application is supposed to exit"""
-        # restrict caller to self.finalizer
-        caller_code = inspect.stack()[1][0].f_code
-        if caller_code != self.finalizer.func_code:
-            raise RuntimeError, 'Access denied to caller: %s' % caller_code.co_name
-            
         # write conf file
         yaml = self._config.to_yaml()
         open(self.conf_file, 'w').write(yaml)
@@ -75,6 +66,16 @@ class Context:
         except NoConfigVariable:
             self._config.create(var_path, value)
             
+    # singleton trick
+    #  see init_context()
+    def __call__(self):
+        return self
+        
+def init_context():
+    app_settings_directory = os.path.expanduser('~/.config/mallet')
+    # singleton trick
+    global Context
+    Context = Context(app_settings_directory)            
 
 
 class NoConfigVariable(Exception):
@@ -142,3 +143,6 @@ class AppConfig:
     def to_yaml(self):
         """Return as yaml string"""
         return ydump.dump(self._data)
+        
+        
+init_context()
