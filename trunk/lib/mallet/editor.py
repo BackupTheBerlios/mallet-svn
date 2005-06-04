@@ -120,6 +120,7 @@ class UniqueNames:
                 min_len = len(parts[path])
             shortname[path] = [basename, '']
         
+        # Find the common parent and use that as shortname
         pathmap_copy = pathmap.copy()
         for point in range(min_len):
             if len(pathmap_copy) == 1:
@@ -127,7 +128,7 @@ class UniqueNames:
                 continue
             elif len(pathmap_copy) == 0:
                 break
-                
+            
             part_map = {} # parts[path][point] -> path
             for path in pathmap_copy.keys():
                 part = parts[path][point]
@@ -140,16 +141,16 @@ class UniqueNames:
                     path = path_lst[0]
                     del pathmap_copy[path]
                     shortname[path][1] = part
-                
+        
+        # shortname for all paths have been found
         assert len(pathmap_copy) == 0
         
+        # Update and notify of modified/created shortnames
         modified = []
-        print '-'*30
         for path, shortname in shortname.items():
             if not self.uniquename[path] or self.uniquename[path]  != shortname:
                 shortname_changed_callback = pathmap[path]
                 self.uniquename[path] = shortname
-                print 'Solution:', path, shortname
                 shortname_changed_callback(shortname)
 
 
