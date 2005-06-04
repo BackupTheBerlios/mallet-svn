@@ -1,4 +1,8 @@
 
-NEXT:
+short-term:
     Editor:
         * 'Edit' actions
+
+long-term:
+    * Exception handler - get local variable values and collect data
+

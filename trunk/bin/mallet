@@ -16,7 +16,15 @@
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 import sys
-sys.path.append('/space/one/Projects/mallet/lib/')
+import os.path
+
+splits = [
+    os.path.dirname(os.path.abspath(__file__)),
+    os.path.pardir,
+    'lib',
+  ]
+mallet_dir = os.path.join(*splits)
+sys.path.append(mallet_dir)
 
 from mallet.main import run
 
