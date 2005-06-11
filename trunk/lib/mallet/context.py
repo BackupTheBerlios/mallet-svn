@@ -33,16 +33,19 @@ class ctx:
           after instantiation (see `init_context` function).
           It is enough to do 'from context import ctx' to get the context
           instance.
-    
+          
     Configuration variables
     =======================
     >>> from context import ctx
     >>> ctx['editor.font'] = 'Monospace'
     >>> size = int( ctx['editor.fontsize'] )
     """
+    
+    main_window = property(fget=lambda self: self._get_mw())
 
-    def __init__(self, app_settings_directory):
+    def __init__(self, app_settings_directory, get_main_window_func):
         self.app_settings_directory = app_settings_directory
+        self._get_mw = get_main_window_func
         
         if not os.path.exists(app_settings_directory):
             os.makedirs(app_settings_directory)
@@ -72,11 +75,11 @@ class ctx:
             self._config.create(var_path, value)
 
         
-def init_context():
+def init_context(get_main_window_func):
     app_settings_directory = os.path.expanduser('~/.config/mallet')
     # singleton trick
     global ctx
-    ctx = ctx(app_settings_directory)            
+    ctx = ctx(app_settings_directory, get_main_window_func)
 
 
 class NoConfigVariable(Exception):
@@ -150,6 +153,3 @@ class AppConfig:
     def to_yaml(self):
         """Return as yaml string"""
         return ydump.dump(self._data)
-        
-        
-init_context()

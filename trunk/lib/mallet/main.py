@@ -21,13 +21,20 @@ import pygtk
 pygtk.require('2.0')
 import gtk
 
-import mallet.context # First module to be imported from `mallet`
-from mallet.context import ctx 
+def get_main_wind():
+    return MainWindow.instance
+    
+# First module to be imported from `mallet`
+import mallet.context
+mallet.context.init_context(get_main_wind)
+from mallet.context import ctx
 from mallet.editor import EditorBook
+
 
 def run():
     """Start the application"""
     w = MainWindow()
+    MainWindow.instance = w
     for child in w.get_children():
         w.show_all()
     w.maximize()
@@ -35,9 +42,12 @@ def run():
     gtk.main()
 
 
+
 class MainWindow(gtk.Window):
 
     """Main application window"""
+    
+    instance = None
 
     def __init__(self):
         gtk.Window.__init__(self)

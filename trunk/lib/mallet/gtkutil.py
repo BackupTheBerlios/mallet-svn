@@ -21,6 +21,8 @@ import os.path
 import inspect
 import gtk
 
+from mallet.context import ctx
+
 
 class GtkExceptionReporter:
 
@@ -38,7 +40,7 @@ class GtkExceptionReporter:
             sys.__excepthook__(type, value, tb)
         else:
             import traceback, pdb
-            msg = gtk.MessageDialog(parent=None,
+            msg = gtk.MessageDialog(parent=ctx.main_window,
                                     flags=gtk.DIALOG_MODAL,
                                     type=gtk.MESSAGE_ERROR,
                                     message_format="Exception! Look at console for debugging.")
