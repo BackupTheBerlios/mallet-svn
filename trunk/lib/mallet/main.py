@@ -91,6 +91,7 @@ class MainWindow(gtk.Window):
         vbox.pack_start(menubar, False)
         vbox.pack_start(toolbar, False)
         vbox.pack_start(e, True)
+        vbox.pack_start(gtk.Statusbar(), False)
 
         self.add(vbox)
         

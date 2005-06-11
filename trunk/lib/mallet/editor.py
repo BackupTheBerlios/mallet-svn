@@ -167,7 +167,10 @@ class Document(gobject.GObject):
     # Created (named) documents 'hashed' by the filename
     live_documents = {}
     
+    clipboard = gtk.Clipboard()
+    
     uniquename = UniqueNames()
+    editorbook = None
 
     __gsignals__ = {
         'shortname-changed': (gobject.SIGNAL_RUN_LAST, None, (str,))
@@ -183,11 +186,15 @@ class Document(gobject.GObject):
         self.__shortname = None
         gobject.GObject.__init__(self)
         self.editor = Editor()
+        
         if filename:
             self.openFile(filename)
             Document.live_documents[filename] = self
         self.editor.show()
         self.editor.set_data('document-instance', self)
+        
+        self.editor.buffer.connect('can-undo', self.activated)
+        self.editor.buffer.connect('can-redo', self.activated)
         
     def __set_filename(self, value):
         def update_shortname(shortname):
@@ -232,7 +239,28 @@ class Document(gobject.GObject):
     def getModified(self):
         """Return True if the buffer was modified since last saved"""
         return self.editor.buffer.get_modified()
+        
+    def activated(self, *args):
+        """Called when the document is focused"""
+        self.editorbook.action_group.get_action('Undo').set_sensitive(self.editor.buffer.can_undo())
+        self.editorbook.action_group.get_action('Redo').set_sensitive(self.editor.buffer.can_redo())
+        
+    # Action callbacks
+    def on_Cut(self, widget):
+        self.editor.buffer.cut_clipboard(self.clipboard, self.editor.view.get_editable())
+    
+    def on_Copy(self, widget):
+        self.editor.buffer.copy_clipboard(self.clipboard)
+        
+    def on_Paste(self, widget):
+        self.editor.buffer.paste_clipboard(self.clipboard, None, self.editor.view.get_editable())
 
+    def on_Undo(self, widget):
+        self.editor.buffer.undo()
+        
+    def on_Redo(self, widget):
+        self.editor.buffer.redo()
+    
 
 gobject.type_register(Document)
 
@@ -242,6 +270,7 @@ class EditorBook(gtk.Notebook, ActionControllerMixin):
     """Documents notebook"""
 
     def __init__(self):
+        Document.editorbook = self
         gtk.Notebook.__init__(self)
 
         self.documents = {} # document -> page_num
@@ -270,8 +299,29 @@ class EditorBook(gtk.Notebook, ActionControllerMixin):
             ('Paste', gtk.STOCK_PASTE, '_Paste', '<Control>p',
              'Paste text from clipboard'),
             ])
+            
+        self.page_actions = ['Undo', 'Redo', 'Cut', 'Copy', 'Paste',
+                        'Save', 'SaveAs', 'Close']
+        # create Page action callbacks
+        for action_name in self.page_actions:
+            action = self.action_group.get_action(action_name)
+            def getActionCB(action_name):
+                """Return function that calls the Action callback on
+                the focused document
+                """
+                def dispatchAction(widget):
+                    doc = self.currentDocument()
+                    cb = getattr(doc, 'on_%s'%action_name)
+                    return cb(widget)
+                return dispatchAction
+            # connect only if 'self' didnt define the callback
+            if not hasattr(self, 'on_%s'%action_name):
+                action.connect('activate', getActionCB(action_name))
 
         self.connectActionCallbacks(ag)
+        self._nr_tabs_changed()
+        
+        self.connect('switch-page', self._page_changed)
 
     def getUI(self):
         # TODO: standardize this as plugin method
@@ -279,6 +329,21 @@ class EditorBook(gtk.Notebook, ActionControllerMixin):
 
     def _cbFilenameChanged(self, document, prop):
         print 'CC', document.filename
+        
+    def _page_changed(self, notebook, page, page_num):
+        doc = self.currentDocument()
+        if doc:
+            doc.activated()
+        
+    def _nr_tabs_changed(self):
+        nr = self.get_n_pages()
+        sensitive = True
+        if nr == 0:
+            # disable page specific actions
+            sensitive = False
+        for action_name in self.page_actions:
+            action = self.action_group.get_action(action_name)
+            action.set_sensitive(sensitive)
 
     def addDocument(self, document):
         """Add a document to notebook"""
@@ -286,6 +351,7 @@ class EditorBook(gtk.Notebook, ActionControllerMixin):
         label = gtk.Label(title)
         label.show()
         self.documents[document] = self.append_page(document.editor, label)
+        self._nr_tabs_changed()
         document.connect('shortname-changed', self._cbShortnameChanged)
     
     def _cbShortnameChanged(self, document, shortname):
@@ -295,6 +361,7 @@ class EditorBook(gtk.Notebook, ActionControllerMixin):
     def removeDocument(self, document):
         """Remove the document from notebook"""
         self.remove_page(self.documents[document])
+        self._nr_tabs_changed()
         del self.documents[document]
         document.close()
 
@@ -378,10 +445,12 @@ uidesc = """
       <menuitem action="Save"/>
       <menuitem action="SaveAs"/>
       <menuitem action="Close"/>
+      <separator/>
     </menu>
     <menu action="EditMenu">
       <menuitem action="Undo"/>
       <menuitem action="Redo"/>
+      <separator/>
       <menuitem action="Cut"/>
       <menuitem action="Copy"/>
       <menuitem action="Paste"/>
