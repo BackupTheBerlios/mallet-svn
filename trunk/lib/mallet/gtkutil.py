@@ -16,9 +16,46 @@
 
 """Utility functions, classes for GTK"""
 
+import sys
 import os.path
 import inspect
 import gtk
+
+
+class GtkExceptionReporter:
+
+    """Handlers all exception globally and reports data in a dialog 
+    providing options to debug, continue or stop the program
+    """
+    
+    def __init__(self):
+        sys.excepthook =self._exception_cb
+    
+    def _exception_cb(self, typ, value, tb):
+        if hasattr(sys, 'ps1') or not sys.stderr.isatty():
+            # we are in interactive mode or we don't have a tty-like
+            # device, so we call the default hook
+            sys.__excepthook__(type, value, tb)
+        else:
+            import traceback, pdb
+            msg = gtk.MessageDialog(parent=None,
+                                    flags=gtk.DIALOG_MODAL,
+                                    type=gtk.MESSAGE_ERROR,
+                                    message_format="Exception! Look at console for debugging.")
+            msg.add_buttons(gtk.STOCK_OK, gtk.RESPONSE_OK)
+            msg.run()
+            msg.destroy()
+            print color_bright_red
+            traceback.print_exception(type, value, tb)
+            print color_none
+            print 
+            # ...then start the debugger in post-mortem mode.
+            print color_bright_blue
+            pdb.pm()
+            print color_none
+            
+            
+_hook = GtkExceptionReporter()
 
 
 class ActionControllerMixin:
@@ -114,3 +151,29 @@ class FileDialog:
         if filename:
             FileDialog.last_accessed = filename
         return filename
+
+
+# Xterm color codes:
+colornames = ['none', 'black', 'red', 'green', 'brown', 'blue', 'magenta',
+'cyan', 'light_gray', 'dark_gray', 'bright_red', 'bright_green', 'yellow',
+'bright_blue', 'purple', 'bright_cyan', 'white']
+
+color_none         = chr(27) + "[0m"
+color_black        = chr(27) + "[30m"
+color_red          = chr(27) + "[31m"
+color_green        = chr(27) + "[32m"
+color_brown        = chr(27) + "[33m"
+color_blue         = chr(27) + "[34m"
+color_magenta      = chr(27) + "[35m"
+color_cyan         = chr(27) + "[36m"
+color_light_gray   = chr(27) + "[37m"
+color_dark_gray    = chr(27) + "[30;1m"
+color_bright_red   = chr(27) + "[31;1m"
+color_bright_green = chr(27) + "[32;1m"
+color_yellow       = chr(27) + "[33;1m"
+color_bright_blue  = chr(27) + "[34;1m"
+color_purple       = chr(27) + "[35;1m"
+color_bright_cyan  = chr(27) + "[36;1m"
+color_white        = chr(27) + "[37;1m"
+
+__all__ = ['FileDialog', 'ActionControllerMixin']
