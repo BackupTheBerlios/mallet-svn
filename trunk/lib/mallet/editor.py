@@ -137,12 +137,12 @@ class Editor(gtk.ScrolledWindow):
         self.buffer.set_language(language)
         
         self.view.set_show_line_numbers(True)
-        self.view.set_tabs_width(4)
+        self.view.set_tabs_width(ctx['editor.tabs_width'])
         self.view.set_insert_spaces_instead_of_tabs(True)
         self.view.set_auto_indent(True)
         self.view.set_smart_home_end(True)
         
-        font_desc = pango.FontDescription('monospace 10')
+        font_desc = pango.FontDescription(ctx['editor.font_desc'])
         assert font_desc, "No monospace font available"
         self.view.modify_font(font_desc)
 
@@ -217,7 +217,12 @@ class Document(gobject.GObject):
 
     def openFile(self, filename):
         """Open file"""
-        self.editor.setText(open(filename).read())
+        self.editor.buffer.begin_not_undoable_action()
+        try:
+            self.editor.setText(open(filename).read())
+        finally:
+            self.editor.buffer.end_not_undoable_action()
+        self.editor.buffer.set_modified(False)
         self.__set_filename(filename)
 
     def save(self, newFilenameIfAny=None):

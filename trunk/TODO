@@ -1,6 +1,7 @@
 
 short-term:
     * app-exit must comfirm save for buffers
+    * open-dialog - multiple file selections
 
 long-term:
     * intellisense

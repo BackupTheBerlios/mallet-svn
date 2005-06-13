@@ -1,3 +1,5 @@
 ---
 editor:
-    font: Monospace
+    font_desc: monospace 10
+    tabs_width: 4
+
