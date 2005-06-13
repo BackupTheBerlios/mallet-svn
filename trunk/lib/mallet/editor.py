@@ -23,6 +23,7 @@ import os.path
 
 import gobject
 import gtk
+import pango
 import gtksourceview as gsv
 
 from mallet.gtkutil import ActionControllerMixin, FileDialog
@@ -125,11 +126,25 @@ class Editor(gtk.ScrolledWindow):
         self.buffer = gsv.SourceBuffer()
         self.view = gsv.SourceView(self.buffer)
         self.buffer.set_highlight(True)
-        language = self.LM.get_language_from_mime_type('text/x-python')
-        self.buffer.set_language(language)
+        self._set_python()
         self.add_with_viewport(self.view)
         self.show()
         self.view.show()
+        
+    def _set_python(self):
+        """Set python specific settings and other defaults"""
+        language = self.LM.get_language_from_mime_type('text/x-python')
+        self.buffer.set_language(language)
+        
+        self.view.set_show_line_numbers(True)
+        self.view.set_tabs_width(4)
+        self.view.set_insert_spaces_instead_of_tabs(True)
+        self.view.set_auto_indent(True)
+        self.view.set_smart_home_end(True)
+        
+        font_desc = pango.FontDescription('monospace 10')
+        assert font_desc, "No monospace font available"
+        self.view.modify_font(font_desc)
 
     def setText(self, text):
         self.buffer.set_text(text)

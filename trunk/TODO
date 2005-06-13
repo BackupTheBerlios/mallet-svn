@@ -1,8 +1,6 @@
 
 short-term:
-    Editor:
-        * 'Edit' actions
+    * app-exit must comfirm save for buffers
 
 long-term:
-    * Exception handler - get local variable values and collect data
-
+    * intellisense
