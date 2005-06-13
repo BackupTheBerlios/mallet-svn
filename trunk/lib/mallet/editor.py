@@ -274,11 +274,18 @@ class Document(gobject.GObject):
             action = self.editorbook.action_group.get_action(action_name)
             action.set_sensitive(self.getModified())
             
+        def mark_set(buffer, iter, mark):
+            sensitive = not self.editor.buffer.get_selection_bounds() == ()
+            for action_name in ('Cut', 'Copy'):
+                action = self.editorbook.action_group.get_action(action_name)
+                action.set_sensitive(sensitive)
+            
         id1 = self.editor.buffer.connect('can-redo', undo_redo_changed, 'Redo')
         id2 = self.editor.buffer.connect('can-undo', undo_redo_changed, 'Undo')
         id3 = self.editor.buffer.connect_after('modified-changed', modified_changed, 'Save')
+        id4 = self.editor.buffer.connect('mark-set', mark_set)
         
-        self._selected_handlers = [id1, id2, id3]
+        self._selected_handlers = [id1, id2, id3, id4]
         
     def deselected(self):
         for handler_id in self._selected_handlers:
@@ -397,6 +404,9 @@ class EditorBook(gtk.Notebook, ActionControllerMixin):
         self.documents[document] = self.append_page(document.editor, label)
         self._nr_tabs_changed()
         document.connect('shortname-changed', self._cbShortnameChanged)
+        if self.get_n_pages() == 1:
+            # switch-page signal wont be raised, so call selected() manually
+            document.selected()
     
     def _cbShortnameChanged(self, document, shortname):
         label = self.get_tab_label(document.editor)
@@ -521,7 +531,10 @@ uidesc = """
       <toolitem action="New"/>
     <separator/>
       <toolitem action="Open"/>
-    <separator name="sep1"/>
+      <separator/>
+      <toolitem action="Undo"/>
+      <toolitem action="Redo"/>
+      <separator/>
       <toolitem action="Cut"/>
       <toolitem action="Copy"/>
       <toolitem action="Paste"/>
