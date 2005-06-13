@@ -250,10 +250,15 @@ class Document(gobject.GObject):
             action = self.editorbook.action_group.get_action(action_name)
             action.set_sensitive(can_do)
             
+        def modified_changed(buffer, action_name):
+            action = self.editorbook.action_group.get_action(action_name)
+            action.set_sensitive(self.getModified())
+            
         id1 = self.editor.buffer.connect('can-redo', undo_redo_changed, 'Redo')
         id2 = self.editor.buffer.connect('can-undo', undo_redo_changed, 'Undo')
+        id3 = self.editor.buffer.connect_after('modified-changed', modified_changed, 'Save')
         
-        self._selected_handlers = [id1, id2]
+        self._selected_handlers = [id1, id2, id3]
         
     def deselected(self):
         for handler_id in self._selected_handlers:
