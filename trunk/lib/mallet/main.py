@@ -20,6 +20,7 @@ import os.path
 import pygtk
 pygtk.require('2.0')
 import gtk
+from gtk import gdk
 
 def get_main_wind():
     return MainWindow.instance
@@ -28,11 +29,16 @@ def get_main_wind():
 import mallet.context
 mallet.context.init_context(get_main_wind)
 from mallet.context import ctx
+
 from mallet.editor import EditorBook
+from mallet.config import pixmaps_dir
 
 
 def run():
     """Start the application"""
+    logo = gdk.pixbuf_new_from_file(os.path.join(pixmaps_dir, 'mallet.png'))
+    gtk.window_set_default_icon(logo)
+    
     w = MainWindow()
     MainWindow.instance = w
     for child in w.get_children():

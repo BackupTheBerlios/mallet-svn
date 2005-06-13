@@ -29,48 +29,6 @@ from mallet.gtkutil import ActionControllerMixin, FileDialog
 from mallet.context import ctx
 
 
-class Editor(gtk.ScrolledWindow):
-
-    """High-level simple wrapper around GtkSourceView"""
-
-    LM = gsv.SourceLanguagesManager()
-    
-    editable = property(fget=lambda s: s.view.get_editable(), doc="Is the text editable?")
-
-    def __init__(self):
-        gtk.ScrolledWindow.__init__(self)
-        self.buffer = gsv.SourceBuffer()
-        self.view = gsv.SourceView(self.buffer)
-        self.buffer.set_highlight(True)
-        language = self.LM.get_language_from_mime_type('text/x-python')
-        self.buffer.set_language(language)
-        self.add_with_viewport(self.view)
-        self.show()
-        self.view.show()
-
-    def setText(self, text):
-        self.buffer.set_text(text)
-
-    def getText(self):
-        start, end = self.buffer.get_bounds()
-        return self.buffer.get_text(start, end)
-
-
-class DocumentExists(Exception):
-
-    """Document already exists (opened by user)"""
-
-    def __init__(self, document):
-        self.document = document
-
-    def __str__(self):
-        return self.__class__.__doc__
-
-class DocumentHasNoFilename(Exception):
-
-    """Document was not given any filename (unnamed)"""
-
-
 class UniqueNames:
 
     """Map each filename to unique (human readable) short versions such that no
@@ -154,6 +112,33 @@ class UniqueNames:
                 shortname_changed_callback(shortname)
 
 
+class Editor(gtk.ScrolledWindow):
+
+    """High-level simple wrapper around GtkSourceView"""
+
+    LM = gsv.SourceLanguagesManager()
+    
+    editable = property(fget=lambda s: s.view.get_editable(), doc="Is the text editable?")
+
+    def __init__(self):
+        gtk.ScrolledWindow.__init__(self)
+        self.buffer = gsv.SourceBuffer()
+        self.view = gsv.SourceView(self.buffer)
+        self.buffer.set_highlight(True)
+        language = self.LM.get_language_from_mime_type('text/x-python')
+        self.buffer.set_language(language)
+        self.add_with_viewport(self.view)
+        self.show()
+        self.view.show()
+
+    def setText(self, text):
+        self.buffer.set_text(text)
+
+    def getText(self):
+        start, end = self.buffer.get_bounds()
+        return self.buffer.get_text(start, end)
+
+
 class Document(gobject.GObject):
 
     """Represent the editor and file associated with it. Any *editing* operations
@@ -193,8 +178,6 @@ class Document(gobject.GObject):
         self.editor.show()
         self.editor.set_data('document-instance', self)
         
-        self.editor.buffer.connect('can-undo', self.activated)
-        self.editor.buffer.connect('can-redo', self.activated)
         
     def __set_filename(self, value):
         def update_shortname(shortname):
@@ -240,10 +223,41 @@ class Document(gobject.GObject):
         """Return True if the buffer was modified since last saved"""
         return self.editor.buffer.get_modified()
         
-    def activated(self, *args):
-        """Called when the document is focused"""
-        self.editorbook.action_group.get_action('Undo').set_sensitive(self.editor.buffer.can_undo())
-        self.editorbook.action_group.get_action('Redo').set_sensitive(self.editor.buffer.can_redo())
+    # The selected and deselected methods will be called when the document
+    # is selected or deselected in the editor notebook accordingly
+        
+    def selected(self):
+        states = {}
+        
+        if not self.editor.buffer.get_selection_bounds():
+            states['Cut'] = states['Copy'] = False
+        else:
+            states['Cut'] = states['Copy'] = True
+            
+        if self.getModified():
+            states['Save'] = True
+        else:
+            states['Save'] = False
+            
+        states['Undo'] = self.editor.buffer.can_undo()
+        states['Redo'] = self.editor.buffer.can_redo()
+        
+        for action_name, sensitive in states.items():
+            action = self.editorbook.action_group.get_action(action_name)
+            action.set_sensitive(sensitive)
+            
+        def undo_redo_changed(buffer, can_do, action_name):
+            action = self.editorbook.action_group.get_action(action_name)
+            action.set_sensitive(can_do)
+            
+        id1 = self.editor.buffer.connect('can-redo', undo_redo_changed, 'Redo')
+        id2 = self.editor.buffer.connect('can-undo', undo_redo_changed, 'Undo')
+        
+        self._selected_handlers = [id1, id2]
+        
+    def deselected(self):
+        for handler_id in self._selected_handlers:
+            self.editor.buffer.disconnect(handler_id)
         
     # Action callbacks
     def on_Cut(self, widget):
@@ -331,9 +345,14 @@ class EditorBook(gtk.Notebook, ActionControllerMixin):
         print 'CC', document.filename
         
     def _page_changed(self, notebook, page, page_num):
-        doc = self.currentDocument()
-        if doc:
-            doc.activated()
+        page = self.get_nth_page(page_num)
+        selected_doc = page.get_data('document-instance')
+        deselected_doc = self.currentDocument()
+        if deselected_doc:
+            deselected_doc.deselected()
+        if selected_doc:
+            selected_doc.selected()
+            
         
     def _nr_tabs_changed(self):
         nr = self.get_n_pages()
@@ -435,6 +454,23 @@ class EditorBook(gtk.Notebook, ActionControllerMixin):
                 return # don't save and close
         # close now
         self.removeDocument(document)
+
+
+
+class DocumentExists(Exception):
+
+    """Document already exists (opened by user)"""
+
+    def __init__(self, document):
+        self.document = document
+
+    def __str__(self):
+        return self.__class__.__doc__
+
+class DocumentHasNoFilename(Exception):
+
+    """Document was not given any filename (unnamed)"""
+
 
 
 uidesc = """

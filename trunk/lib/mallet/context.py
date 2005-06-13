@@ -96,9 +96,15 @@ class AppConfig:
     """
     
     def __init__(self, pref_string):
+        # Load default values first
+        from mallet.config import data_dir
+        default_pref = open(os.path.join(data_dir, 'default.yaml')).read()
+        default_data = syck.load(default_pref)
+        # Load from user preferences
         self._data = syck.load(pref_string)
         if self._data is None:
             self._data = {}
+        self._data.update(default_data)
         
     def get(self, var_path):
         """Get value"""
