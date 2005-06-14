@@ -14,7 +14,7 @@
 # along with this program; if not, write to the Free Software 
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-"""Editor widget based on GtkSourceView
+"""Document manager and Editor widget based on GtkSourceView
 
 This could perhaps become the Editor Plugin
 """
@@ -26,7 +26,7 @@ import gtk
 import pango
 import gtksourceview as gsv
 
-from mallet.gtkutil import ActionControllerMixin, FileDialog
+from mallet.gtkutil import ActionControllerMixin, FileDialog, NotebookLabel
 from mallet.context import ctx
 
 
@@ -319,8 +319,6 @@ class EditorBook(gtk.Notebook, ActionControllerMixin):
         Document.editorbook = self
         gtk.Notebook.__init__(self)
 
-        self.documents = {} # document -> page_num
-        
         self.action_group = ag = gtk.ActionGroup('EditorActionGroup')
         ag.add_actions([
             ('New', gtk.STOCK_NEW, '_New', '<Control>n',
@@ -398,10 +396,11 @@ class EditorBook(gtk.Notebook, ActionControllerMixin):
 
     def addDocument(self, document):
         """Add a document to notebook"""
-        title = str(document.shortname)
-        label = gtk.Label(title)
-        label.show()
-        self.documents[document] = self.append_page(document.editor, label)
+        
+        # tab label
+        label = NotebookLabel(str(document.shortname))
+        label.close.connect('clicked', self.on_Close, document)
+        self.append_page(document.editor, label)
         self._nr_tabs_changed()
         document.connect('shortname-changed', self._cbShortnameChanged)
         if self.get_n_pages() == 1:
@@ -414,11 +413,10 @@ class EditorBook(gtk.Notebook, ActionControllerMixin):
 
     def removeDocument(self, document):
         """Remove the document from notebook"""
-        self.remove_page(self.documents[document])
+        self.remove_page(self.page_num(document.editor))
         self._nr_tabs_changed()
-        del self.documents[document]
         document.close()
-
+        
     def focusDocument(self, document):
         """Bring the document to focus"""
         nr = self.page_num(document.editor)
@@ -469,8 +467,9 @@ class EditorBook(gtk.Notebook, ActionControllerMixin):
         document = self.currentDocument()
         self.saveDocument(document)
 
-    def on_Close(self, widget):
-        document = self.currentDocument()
+    def on_Close(self, widget, document=None):
+        if document is None:
+            document = self.currentDocument()
         if document.getModified():
             # TODO: set parent
             msg = gtk.MessageDialog(parent=None,

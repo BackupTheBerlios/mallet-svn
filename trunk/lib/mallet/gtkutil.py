@@ -23,6 +23,31 @@ import gtk
 
 from mallet.context import ctx
 
+class NotebookLabel(gtk.HBox):
+
+    """Common notebook tab label widget with text and close button"""
+    
+    def __init__(self, text):
+        gtk.HBox.__init__(self)
+        self.close = gtk.Button()
+        self.text = gtk.Label(text)
+        close_img = gtk.Image()
+        close_img.set_from_stock(gtk.STOCK_CLOSE, gtk.ICON_SIZE_MENU)
+        self.close.add(close_img)
+        self.close.set_relief(gtk.RELIEF_NONE)
+        w,h = gtk.icon_size_lookup(gtk.ICON_SIZE_MENU)
+        self.close.set_size_request(w,h)
+        self.close.set_focus_on_click(False)
+        
+        self.pack_start(self.text)
+        self.pack_start(self.close)
+        self.show_all()
+        
+    def set_text(self, text):
+        self.text.set_text(text)
+        
+    def get_text(self, text):
+        self.text.get_text()
 
 class GtkExceptionReporter:
 
