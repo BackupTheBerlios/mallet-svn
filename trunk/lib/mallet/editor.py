@@ -1,4 +1,4 @@
-# Copyright (C) 2004 Sridhar Ratna <sridhar@users.berlios.de>
+# Copyright (C) 2005 Sridhar Ratna <sridhar@users.berlios.de>
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -396,7 +396,7 @@ class EditorBook(gtk.Notebook, ActionControllerMixin):
         """Add a document to notebook"""
         
         # tab label
-        label = NotebookLabel(str(document.shortname))
+        label = NotebookLabel(document.shortname or 'Unsaved file')
         label.close.connect('clicked', self.on_Close, document)
         self.append_page(document.editor, label)
         self._nr_tabs_changed()

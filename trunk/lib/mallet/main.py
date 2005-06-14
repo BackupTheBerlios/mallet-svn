@@ -1,4 +1,4 @@
-# Copyright (C) 2004 Sridhar Ratna <sridhar@users.berlios.de>
+# Copyright (C) 2005 Sridhar Ratna <sridhar@users.berlios.de>
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
