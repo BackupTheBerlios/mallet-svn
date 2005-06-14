@@ -32,13 +32,12 @@ from mallet.context import ctx
 
 from mallet.editor import EditorBook
 from mallet.config import pixmaps_dir
+from mallet.gtkutil import ActionControllerMixin
 
 
 def run():
     """Start the application"""
-    logo = gdk.pixbuf_new_from_file(os.path.join(pixmaps_dir, 'mallet.png'))
-    gtk.window_set_default_icon(logo)
-    
+    gtk.window_set_default_icon(MainWindow.logo)
     w = MainWindow()
     MainWindow.instance = w
     for child in w.get_children():
@@ -49,11 +48,13 @@ def run():
 
 
 
-class MainWindow(gtk.Window):
+class MainWindow(gtk.Window, ActionControllerMixin):
 
     """Main application window"""
     
     instance = None
+    
+    logo = gdk.pixbuf_new_from_file(os.path.join(pixmaps_dir, 'mallet.png'))
 
     def __init__(self):
         gtk.Window.__init__(self)
@@ -74,9 +75,7 @@ class MainWindow(gtk.Window):
                                  ('EditMenu', None, '_Edit'),
                                  ])
 
-        actiongroup.add_actions([('OnlineHelp', None, 'Online _Help', None,
-                                  'Get help on the web', ncb),
-                                 ('About', None, '_About', None,
+        actiongroup.add_actions([('About', None, '_About', None,
                                   'About this program', ncb),
                                  ('HelpMenu', None, '_Help')])
                       
@@ -101,10 +100,24 @@ class MainWindow(gtk.Window):
 
         self.add(vbox)
         
+        self.connectActionCallbacks(actiongroup)
+        
         self.connect('delete_event', lambda *args: False)
-        self.connect('destroy', self.destroy)
+        self.connect('destroy', self.on_Quit)
 
-    def destroy(self, widget, data=None):
+    def on_About(self, widget):
+        dlg = gtk.AboutDialog()
+        dlg.set_name('GNOME Mallet')
+        dlg.set_version('0.0')
+        dlg.set_comments('GNOME RAD')
+        dlg.set_website('http://mallet.berlios.de')
+        dlg.set_authors(['Sridhar Ratna'])
+        dlg.set_logo(self.logo)
+        dlg.set_transient_for(ctx.main_window)
+        dlg.run()
+        dlg.destroy()
+
+    def on_Quit(self, widget, data=None):
         ctx._cleanup()
         gtk.main_quit()
 
@@ -117,7 +130,6 @@ uidesc = """
     <menu action="EditMenu">
     </menu>
     <menu action="HelpMenu">
-      <menuitem action="OnlineHelp" position="top" />
       <menuitem action="About" position="bot"/>
     </menu>
   </menubar>

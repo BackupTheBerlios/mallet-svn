@@ -327,8 +327,6 @@ class EditorBook(gtk.Notebook, ActionControllerMixin):
              'Open existing file'),
             ('Save', gtk.STOCK_SAVE, '_Save', '<Control>s',
              'Save current file'),
-            ('SaveAs', None, 'Save _As ...', None,
-             'Save current file under different filename'),
             ('Close', gtk.STOCK_CLOSE, '_Close', None,
              'Close current file'),
 
@@ -345,7 +343,7 @@ class EditorBook(gtk.Notebook, ActionControllerMixin):
             ])
             
         self.page_actions = ['Undo', 'Redo', 'Cut', 'Copy', 'Paste',
-                        'Save', 'SaveAs', 'Close']
+                        'Save', 'Close']
         # create Page action callbacks
         for action_name in self.page_actions:
             action = self.action_group.get_action(action_name)
@@ -403,6 +401,16 @@ class EditorBook(gtk.Notebook, ActionControllerMixin):
         self.append_page(document.editor, label)
         self._nr_tabs_changed()
         document.connect('shortname-changed', self._cbShortnameChanged)
+        def modified_changed(buffer, document):
+            # set color of tab_label text
+            modified = document.getModified()
+            tab_label = self.get_tab_label(document.editor)
+            if modified:
+                tab_label.set_color(0xFFFF, 0, 0)
+            else:
+                tab_label.set_color(0,0,0)
+            
+        document.editor.buffer.connect_after('modified-changed', modified_changed, document)
         if self.get_n_pages() == 1:
             # switch-page signal wont be raised, so call selected() manually
             document.selected()
@@ -438,7 +446,7 @@ class EditorBook(gtk.Notebook, ActionControllerMixin):
         try:
             document.save()
         except DocumentHasNoFilename:
-            filename = FileDialog().save()
+            filename = FileDialog().save(ctx.main_window)
             if filename is None:
                 return False
             document.save(filename)
@@ -453,7 +461,7 @@ class EditorBook(gtk.Notebook, ActionControllerMixin):
         self.focusDocument(document)
 
     def on_Open(self, widget):
-        filename = FileDialog().open()
+        filename = FileDialog().open(ctx.main_window)
         if filename:
             document = None
             try:
@@ -472,7 +480,7 @@ class EditorBook(gtk.Notebook, ActionControllerMixin):
             document = self.currentDocument()
         if document.getModified():
             # TODO: set parent
-            msg = gtk.MessageDialog(parent=None,
+            msg = gtk.MessageDialog(parent=ctx.main_window,
                                     flags=gtk.DIALOG_MODAL,
                                     type=gtk.MESSAGE_WARNING,
                                     message_format="Save %s?"%document.filename or 'Untitled')
@@ -513,7 +521,6 @@ uidesc = """
       <menuitem action="New"/>
       <menuitem action="Open"/>
       <menuitem action="Save"/>
-      <menuitem action="SaveAs"/>
       <menuitem action="Close"/>
       <separator/>
     </menu>
@@ -530,6 +537,7 @@ uidesc = """
       <toolitem action="New"/>
     <separator/>
       <toolitem action="Open"/>
+      <toolitem action="Save"/>
       <separator/>
       <toolitem action="Undo"/>
       <toolitem action="Redo"/>

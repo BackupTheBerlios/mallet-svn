@@ -1,5 +1,6 @@
 
 short-term:
+    * re-order File->Quit to bottom of menu
     * app-exit must comfirm save for buffers
     * open-dialog - multiple file selections
 

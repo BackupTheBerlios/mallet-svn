@@ -20,6 +20,7 @@ import sys
 import os.path
 import inspect
 import gtk
+import pango
 
 from mallet.context import ctx
 
@@ -48,6 +49,13 @@ class NotebookLabel(gtk.HBox):
         
     def get_text(self, text):
         self.text.get_text()
+        
+    def set_color(self, r=0,g=0,b=0):
+        """Set the color of text label"""
+        list = pango.AttrList()
+        list.insert(pango.AttrForeground(r,g,b, end_index=-1))
+        self.text.set_attributes(list)
+
 
 class GtkExceptionReporter:
 
@@ -118,12 +126,12 @@ class FileDialog:
     # Last accessed file or directory
     last_accessed = None
 
-    def open(self):
-        dlg = self.getOpenDlg()
+    def open(self, parent=None):
+        dlg = self.getOpenDlg(parent=parent)
         return self.getFilename(dlg, True)
 
-    def save(self):
-        dlg = self.getSaveDlg()
+    def save(self, parent=None):
+        dlg = self.getSaveDlg(parent=parent)
         return self.getFilename(dlg, False, True)
 
     # Advanced methods
@@ -203,4 +211,4 @@ color_purple       = chr(27) + "[35;1m"
 color_bright_cyan  = chr(27) + "[36;1m"
 color_white        = chr(27) + "[37;1m"
 
-__all__ = ['FileDialog', 'ActionControllerMixin']
+__all__ = ['FileDialog', 'ActionControllerMixin', 'NotebookLabel']
